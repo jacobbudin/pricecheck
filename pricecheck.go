@@ -5,12 +5,12 @@ import (
 	"strings"
 	"fmt"
 	"net/http"
+	"strconv"
 	"io/ioutil"
 	"launchpad.net/goyaml"
 	"github.com/moovweb/gokogiri"
 	"github.com/moovweb/gokogiri/xpath"
 	"github.com/moovweb/gokogiri/xml"
-	//"launchpad.net/xmlpath"
 )
 
 var storeList []Store
@@ -47,15 +47,15 @@ func main() {
 	}
 
 	for _, product := range productList {
-		getPrices(product, storeList)
+		price, _ := getPrices(product, storeList)
+		fmt.Printf("%f", price)
 	}
-
-	fmt.Printf("hi")
 }
 
-func getPrices(product Product, stores []Store) (price float32, error string) {
+func getPrices(product Product, stores []Store) (prices []float32, error string) {
+	prices = make([]float32, len(stores))
 	for _, url := range product.URLs {
-		for _, store := range stores {
+		for i, store := range stores {
 			if(!strings.Contains(url, store.Domain)){
 				continue
 			}
@@ -73,8 +73,9 @@ func getPrices(product Product, stores []Store) (price float32, error string) {
 			nodes, err := nxpath.Evaluate(doc.DocPtr(), exp)
 			if(len(nodes) > 0){
 				price := xml.NewNode(nodes[0], doc).InnerHtml()
-				price = strings.Trim(price, " \n\r")
-				fmt.Printf("%s", price)
+				price = strings.Trim(price, "$ \n\r")
+				price32, _ := strconv.ParseFloat(price, 32)
+				prices[i] = float32(price32)
 			}
 		}
 	}
