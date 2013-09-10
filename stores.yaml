@@ -1,0 +1,9 @@
+- 
+  name: "Amazon.com"
+  domain: "amazon.com"
+  xpath: "//*[@id=\"rbb_ubb_trigger\"]/a/span[3]"
+- 
+  name: "Half.com"
+  domain: "half.ebay.com"
+  xpath: "/html/body/table[2]/tbody/tr/td/table[1]/tbody/tr[2]/td[5]/table/tbody/tr[1]/td/table/tbody/tr/td[1]/table/tbody/tr/td/b/span[2]"
+
