@@ -47,8 +47,13 @@ func main() {
 	}
 
 	for _, product := range productList {
-		price, _ := getPrices(product, storeList)
-		fmt.Printf("%f", price)
+		prices, _ := getPrices(product, storeList)
+		for _, price := range prices {
+			if(price == 0){
+				continue
+			}
+			fmt.Printf("%s ", strconv.FormatFloat(float64(price), 'f', 2, 32))
+		}
 	}
 }
 
