@@ -1,9 +1,9 @@
 - 
   name: "Amazon.com"
   domain: "amazon.com"
-  xpath: "//*[@id=\"rbb_ubb_trigger\"]/a/span[3]"
+  xpath: ".//div[@id=\"rbb_ubb_trigger\"]/*/span[@class=\"bb_price\"]"
 - 
   name: "Half.com"
   domain: "half.ebay.com"
-  xpath: "/html/body/table[2]/tbody/tr/td/table[1]/tbody/tr[2]/td[5]/table/tbody/tr[1]/td/table/tbody/tr/td[1]/table/tbody/tr/td/b/span[2]"
+  xpath: ".//td[@bgcolor=\"#FFE5B2\"]/*/span[2]"
 
