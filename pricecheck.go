@@ -1,29 +1,29 @@
 package main
 
 import (
-	"os"
-	"strings"
 	"fmt"
-	"net/http"
-	"strconv"
+	"github.com/moovweb/gokogiri"
+	"github.com/moovweb/gokogiri/xml"
+	"github.com/moovweb/gokogiri/xpath"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"github.com/moovweb/gokogiri"
-	"github.com/moovweb/gokogiri/xpath"
-	"github.com/moovweb/gokogiri/xml"
+	"net/http"
+	"os"
+	"strconv"
+	"strings"
 )
 
 var storeList []Store
 var productList []Product
 
 type Store struct {
-    Name string
+	Name   string
 	Domain string
-	XPath string
+	XPath  string
 }
 
 type Product struct {
-    Name string
+	Name string
 	URLs []string
 }
 
@@ -49,7 +49,7 @@ func main() {
 	for _, product := range productList {
 		prices, _ := getPrices(product, storeList)
 		for _, price := range prices {
-			if(price == 0){
+			if price == 0 {
 				continue
 			}
 			fmt.Printf("%s ", strconv.FormatFloat(float64(price), 'f', 2, 32))
@@ -61,7 +61,7 @@ func getPrices(product Product, stores []Store) (prices []float32, error string)
 	prices = make([]float32, len(stores))
 	for _, url := range product.URLs {
 		for i, store := range stores {
-			if(!strings.Contains(url, store.Domain)){
+			if !strings.Contains(url, store.Domain) {
 				continue
 			}
 
@@ -69,19 +69,38 @@ func getPrices(product Product, stores []Store) (prices []float32, error string)
 			if err != nil {
 				panic(err)
 			}
+
 			defer resp.Body.Close()
+
 			body, err := ioutil.ReadAll(resp.Body)
 
+			if err != nil {
+				panic(err)
+			}
+
 			doc, err := gokogiri.ParseHtml(body)
+
+			if err != nil {
+				panic(err)
+			}
+
 			exp := xpath.Compile(store.XPath)
 			nxpath := xpath.NewXPath(doc.DocPtr())
 			nodes, err := nxpath.Evaluate(doc.DocPtr(), exp)
-			if(len(nodes) > 0){
-				price := xml.NewNode(nodes[0], doc).InnerHtml()
-				price = strings.Trim(price, "$ \n\r")
-				price32, _ := strconv.ParseFloat(price, 32)
-				prices[i] = float32(price32)
+
+			if err != nil {
+				panic(err)
 			}
+
+			if len(nodes) == 0 {
+				fmt.Printf("Check XPath (%s) for domain: %s", store.XPath, store.Domain)
+				continue
+			}
+
+			price := xml.NewNode(nodes[0], doc).InnerHtml()
+			price = strings.Trim(price, "$ \n\r")
+			price32, _ := strconv.ParseFloat(price, 32)
+			prices[i] = float32(price32)
 		}
 	}
 	return
