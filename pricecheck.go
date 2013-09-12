@@ -43,7 +43,7 @@ func (p *Product) GetPrices(stores []Store) (store_prices []StorePrice) {
 	store_prices = make([]StorePrice, len(p.URLs))
 
 	for i, url := range p.URLs {
-		for _, store := range stores {
+		for j, store := range stores {
 			if !strings.Contains(url, store.Domain) {
 				continue
 			}
@@ -88,7 +88,7 @@ func (p *Product) GetPrices(stores []Store) (store_prices []StorePrice) {
 				continue
 			}
 
-			store_prices[i] = StorePrice{Store: &store, Price: price}
+			store_prices[i] = StorePrice{Store: &stores[j], Price: price}
 		}
 	}
 	return
