@@ -15,17 +15,17 @@ import (
 )
 
 var opts struct {
-    Products string `short:"p" long:"products" description:"A YAML file with product data" required:"true"`
-    Stores string `short:"s" long:"stores" description:"A YAML file with store data" required:"true"`
+	Products string `short:"p" long:"products" description:"A YAML file with product data" required:"true"`
+	Stores   string `short:"s" long:"stores" description:"A YAML file with store data" required:"true"`
 }
 
 var storeList []Store
 var productList []Product
 
 type Store struct {
-	Name   string
-	Domain string
-	XPath  string
+	Name          string
+	Domain        string
+	XPath         string
 	compiledXPath *xpath.Expression
 }
 
@@ -88,7 +88,7 @@ func (p *Product) GetPrices(stores []Store) (store_prices []StorePrice) {
 				continue
 			}
 
-			store_prices[i] = StorePrice { Store: &store, Price: price }
+			store_prices[i] = StorePrice{Store: &store, Price: price}
 		}
 	}
 	return
