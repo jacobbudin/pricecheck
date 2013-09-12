@@ -30,7 +30,7 @@ type Store struct {
 }
 
 type StorePrice struct {
-	Store Store
+	Store *Store
 	Price float64
 }
 
@@ -88,7 +88,7 @@ func (p *Product) GetPrices(stores []Store) (store_prices []StorePrice) {
 				continue
 			}
 
-			store_prices[i] = StorePrice { Store: store, Price: price }
+			store_prices[i] = StorePrice { Store: &store, Price: price }
 		}
 	}
 	return
