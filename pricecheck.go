@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jessevdk/go-flags"
 	"github.com/moovweb/gokogiri"
 	"github.com/moovweb/gokogiri/xml"
 	"github.com/moovweb/gokogiri/xpath"
@@ -13,6 +14,11 @@ import (
 	"strings"
 )
 
+var opts struct {
+    Products string `short:"p" long:"products" description:"A YAML file with product data" required:"true"`
+    Stores string `short:"s" long:"stores" description:"A YAML file with store data" required:"true"`
+}
+
 var storeList []Store
 var productList []Product
 
@@ -20,6 +26,12 @@ type Store struct {
 	Name   string
 	Domain string
 	XPath  string
+	compiledXPath *xpath.Expression
+}
+
+type StorePrice struct {
+	Store Store
+	Price float64
 }
 
 type Product struct {
@@ -27,47 +39,18 @@ type Product struct {
 	URLs []string
 }
 
-func main() {
-	f, _ := os.Open("products.yaml")
-	products := make([]byte, 10000)
-	count, _ := f.Read(products)
-	err := goyaml.Unmarshal(products[:count], &productList)
+func (p *Product) GetPrices(stores []Store) (store_prices []StorePrice) {
+	store_prices = make([]StorePrice, len(p.URLs))
 
-	if err != nil {
-		panic(err)
-	}
-
-	f, _ = os.Open("stores.yaml")
-	stores := make([]byte, 10000)
-	count, _ = f.Read(stores)
-	err = goyaml.Unmarshal(stores[:count], &storeList)
-
-	if err != nil {
-		panic(err)
-	}
-
-	for _, product := range productList {
-		prices, _ := getPrices(product, storeList)
-		for _, price := range prices {
-			if price == 0 {
-				continue
-			}
-			fmt.Printf("%s ", strconv.FormatFloat(float64(price), 'f', 2, 32))
-		}
-	}
-}
-
-func getPrices(product Product, stores []Store) (prices []float32, error string) {
-	prices = make([]float32, len(stores))
-	for _, url := range product.URLs {
-		for i, store := range stores {
+	for i, url := range p.URLs {
+		for _, store := range stores {
 			if !strings.Contains(url, store.Domain) {
 				continue
 			}
 
 			resp, err := http.Get(url)
 			if err != nil {
-				panic(err)
+				continue
 			}
 
 			defer resp.Body.Close()
@@ -75,33 +58,85 @@ func getPrices(product Product, stores []Store) (prices []float32, error string)
 			body, err := ioutil.ReadAll(resp.Body)
 
 			if err != nil {
-				panic(err)
+				continue
 			}
 
 			doc, err := gokogiri.ParseHtml(body)
 
 			if err != nil {
-				panic(err)
-			}
-
-			exp := xpath.Compile(store.XPath)
-			nxpath := xpath.NewXPath(doc.DocPtr())
-			nodes, err := nxpath.Evaluate(doc.DocPtr(), exp)
-
-			if err != nil {
-				panic(err)
-			}
-
-			if len(nodes) == 0 {
-				fmt.Printf("Check XPath (%s) for domain: %s", store.XPath, store.Domain)
 				continue
 			}
 
-			price := xml.NewNode(nodes[0], doc).InnerHtml()
-			price = strings.Trim(price, "$ \n\r")
-			price32, _ := strconv.ParseFloat(price, 32)
-			prices[i] = float32(price32)
+			nxpath := xpath.NewXPath(doc.DocPtr())
+			nodes, err := nxpath.Evaluate(doc.DocPtr(), store.compiledXPath)
+
+			if err != nil {
+				continue
+			}
+
+			if len(nodes) == 0 {
+				fmt.Printf("Check XPath correctness (not found) for domain: %s\n", store.Domain)
+				continue
+			}
+
+			price_raw := xml.NewNode(nodes[0], doc).InnerHtml()
+			price_raw = strings.Trim(price_raw, "$ \n\r")
+			price, err := strconv.ParseFloat(price_raw, 64)
+
+			if err != nil {
+				fmt.Printf("Check XPath correctness (not monetary) for domain: %s\n", store.Domain)
+				continue
+			}
+
+			store_prices[i] = StorePrice { Store: store, Price: price }
 		}
 	}
 	return
+}
+
+func main() {
+	// Parse options
+	_, err := flags.Parse(&opts)
+
+	if err != nil {
+		fmt.Println("Error: Check options")
+		return
+	}
+
+	// Open, parse YAML data
+	f, _ := os.Open(opts.Products)
+	products := make([]byte, 10000)
+	count, _ := f.Read(products)
+	err = goyaml.Unmarshal(products[:count], &productList)
+
+	if err != nil {
+		fmt.Println("Error: Check YAML file of product data")
+		return
+	}
+
+	f, _ = os.Open(opts.Stores)
+	stores := make([]byte, 10000)
+	count, _ = f.Read(stores)
+	err = goyaml.Unmarshal(stores[:count], &storeList)
+
+	if err != nil {
+		fmt.Println("Error: Check YAML file of store data")
+		return
+	}
+
+	// Compile XPaths
+	for i, store := range storeList {
+		storeList[i].compiledXPath = xpath.Compile(store.XPath)
+	}
+
+	// Loop through products
+	for _, product := range productList {
+		store_prices := product.GetPrices(storeList)
+		fmt.Printf("%s\n", strings.ToUpper(product.Name))
+
+		// Get prices
+		for _, store_price := range store_prices {
+			fmt.Printf("\t%s: \t$%s\n", store_price.Store.Name, strconv.FormatFloat(store_price.Price, 'f', 2, 32))
+		}
+	}
 }
