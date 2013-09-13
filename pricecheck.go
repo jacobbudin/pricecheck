@@ -36,9 +36,9 @@ type StorePrice struct {
 }
 
 type Product struct {
-	Name string
-	URLs []string
-	StoreCount int
+	Name        string
+	URLs        []string
+	StoreCount  int
 	StorePrices []StorePrice
 }
 
