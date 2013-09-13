@@ -5,5 +5,8 @@
 - 
   name: "Half.com"
   domain: "half.ebay.com"
-  xpath: ".//td[@bgcolor=\"#FFE5B2\"]/*/span[2]"
-
+  xpath: ".//td[@align=\"center\"]/*/span[2]"
+-
+  name: "B&N Nook"
+  domain: "barnesandnoble.com"
+  xpath: ".//div[@class=\"nook-price\"]/*/div[@itemprop=\"price\"]"
