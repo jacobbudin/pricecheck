@@ -12,6 +12,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var opts struct {
@@ -37,60 +38,71 @@ type StorePrice struct {
 type Product struct {
 	Name string
 	URLs []string
+	StoreCount int
+	StorePrices []StorePrice
 }
 
-func (p *Product) GetPrices(stores []Store) (store_prices []StorePrice) {
-	store_prices = make([]StorePrice, len(p.URLs))
+func (store *Store) LoadPrice(url string) (price float64, err error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return
+	}
 
-	for i, url := range p.URLs {
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		return
+	}
+
+	doc, err := gokogiri.ParseHtml(body)
+
+	if err != nil {
+		return
+	}
+
+	nxpath := xpath.NewXPath(doc.DocPtr())
+	nodes, err := nxpath.Evaluate(doc.DocPtr(), store.compiledXPath)
+
+	if err != nil {
+		return
+	}
+
+	if len(nodes) == 0 {
+		fmt.Printf("Check XPath correctness (not found) for domain: %s\n", store.Domain)
+		return
+	}
+
+	price_raw := xml.NewNode(nodes[0], doc).InnerHtml()
+	price_raw = strings.Trim(price_raw, "$ \n\r")
+	price, err = strconv.ParseFloat(price_raw, 64)
+
+	if err != nil {
+		fmt.Printf("Check XPath correctness (not monetary) for domain: %s\n", store.Domain)
+		return
+	}
+
+	return
+}
+
+func (product *Product) GetPrices(stores []Store) {
+	product.StorePrices = make([]StorePrice, len(product.URLs))
+	store_count := 0
+
+	for i, url := range product.URLs {
 		for j, store := range stores {
 			if !strings.Contains(url, store.Domain) {
 				continue
 			}
 
-			resp, err := http.Get(url)
-			if err != nil {
-				continue
-			}
+			store_count += 1
 
-			defer resp.Body.Close()
-
-			body, err := ioutil.ReadAll(resp.Body)
-
-			if err != nil {
-				continue
-			}
-
-			doc, err := gokogiri.ParseHtml(body)
-
-			if err != nil {
-				continue
-			}
-
-			nxpath := xpath.NewXPath(doc.DocPtr())
-			nodes, err := nxpath.Evaluate(doc.DocPtr(), store.compiledXPath)
-
-			if err != nil {
-				continue
-			}
-
-			if len(nodes) == 0 {
-				fmt.Printf("Check XPath correctness (not found) for domain: %s\n", store.Domain)
-				continue
-			}
-
-			price_raw := xml.NewNode(nodes[0], doc).InnerHtml()
-			price_raw = strings.Trim(price_raw, "$ \n\r")
-			price, err := strconv.ParseFloat(price_raw, 64)
-
-			if err != nil {
-				fmt.Printf("Check XPath correctness (not monetary) for domain: %s\n", store.Domain)
-				continue
-			}
-
-			store_prices[i] = StorePrice{Store: &stores[j], Price: price}
+			price, _ := store.LoadPrice(url)
+			product.StorePrices[i] = StorePrice{Store: &stores[j], Price: price}
 		}
 	}
+	product.StoreCount = store_count
 	return
 }
 
@@ -130,13 +142,30 @@ func main() {
 	}
 
 	// Loop through products
+	for i, _ := range productList {
+		productList[i].StoreCount = -1
+		go productList[i].GetPrices(storeList)
+	}
+
+	for {
+		complete := true
+		for _, product := range productList {
+			if product.StoreCount == -1 {
+				complete = false
+			}
+		}
+		if complete == true {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	for _, product := range productList {
-		store_prices := product.GetPrices(storeList)
-		fmt.Printf("%s\n", strings.ToUpper(product.Name))
+		fmt.Printf("\033[1m%s\033[0m\n", product.Name)
 
 		// Get prices
-		for _, store_price := range store_prices {
-			fmt.Printf("\t%s: \t$%s\n", store_price.Store.Name, strconv.FormatFloat(store_price.Price, 'f', 2, 32))
+		for _, store_price := range product.StorePrices {
+			fmt.Printf(" - %s: \t$%s\n", store_price.Store.Name, strconv.FormatFloat(store_price.Price, 'f', 2, 32))
 		}
 	}
 }
